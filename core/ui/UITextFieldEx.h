@@ -37,11 +37,21 @@ namespace ui
 {
 
 /**
-@brief  The ui::TextFieldEx, better design, better cursor support than ui::TextField
-will replace ui::TextField, currently, ui::TextField, 2d/TextFieldTTF were maked as deprecated
+* The ui::TextFieldEx, better design, better cursor support than ui::TextField will replace
+  ui::TextField, currently, ui::TextField, 2d/TextFieldTTF were maked as deprecated.
+* See the source code to know what I'm actually writing here.
+* -----------------------------------------------------------------------------------------
+* Alignment is supported, by resetting the anchor point of the _renderLabel:
+*                            [   Top: ANCHOR_MIDDLE_TOP   ]
+*         [Left:ANCHOR_LEFT] [   Center: ANCHOR_MIDDLE    ] [Right:ANCHOR_RIGHT]
+*                            [Bottom: ANCHOR_MIDDLE_BOTTOM]
+* -----------------------------------------------------------------------------------------
+* Firstly we need to distingush between these two concepts:
+* 1. "Character Length (CHAR in short)" the length of the string in human-style, e.g., "你好"
+     is 2 characters.
+* 2. "Byte Length (BYTE in short)" the length of the string in bytes, e.g., "你好" is 6 bytes.
 */
-class AX_DLL TextFieldEx : public Widget, public IMEDelegate
-{
+class AX_DLL TextFieldEx : public Widget, public IMEDelegate{
 public:
     /**
      */
@@ -63,7 +73,10 @@ public:
                              float cursorWidth    = 2,
                              const Color4B& color = Color4B::WHITE);
 
+    // Open IME function, which would automatically register clicking and cursor-moving events.
     void enableIME(Node* control = nullptr);
+
+    // Stop IME function, making it unable to edit.
     void disableIME(void);
 
     Label* getRenderLabel();
@@ -126,10 +139,12 @@ public:
     std::function<void(void)> onCloseIME;
     // IMEDelegate interface
     //////////////////////////////////////////////////////////////////////////
+
+    // Open IME keyboard to edit the text.
     void openIME(void);
+    // Close IME keyboard to stop the editing.
     void closeIME(void);
 
-    void insertText(const char* text, size_t len) override;
     /**
      * To confirm the text inserting result from the user. Inserting would be accepted when returning true,
        otherwise ignoring it by returning false. The following are the expected name of the param. you can
@@ -160,9 +175,16 @@ protected:
     bool canAttachWithIME() override;
     bool canDetachWithIME() override;
 
+    /// Insertion handler for inserting the text.
+    /// @param text The text to insert.
+    /// @param len The length of the text. This is the BYTE length.
+    void insertText(const char* text, size_t len) override;
+    /// Deletion handler for deleting the text, typing [Backspace]
+    /// @param numChars The number of characters to delete. This is the CHAR length.
     void deleteBackward(size_t numChars) override;
     std::string_view getContentText() override;
 
+    /// Delete handler, similar to deleteBackward, but it's for [Del] key.
     void handleDeleteKeyEvent();
 
     /**

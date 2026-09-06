@@ -128,7 +128,11 @@ static Sprite* engine_inj_create_lump(const Color4B& color, int height, int widt
 namespace ui
 {
 
-/// calculate the UTF-8 string's char count.
+// calculate the UTF-8 string's char count.
+// @param text text to check the length
+// @param limit how many UTF8-chars are processed here for most?
+// @param nb a parameter to output, the number of char in basic_string<char>
+// @return an int, representing the number of char in UTF8String.
 static int _truncateUTF8String(const char* text, int limit, int& nb)
 {
     int n   = 0;
