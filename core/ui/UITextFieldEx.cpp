@@ -171,45 +171,53 @@ static float internalCalcStringWidth(std::string_view s, std::string_view fontNa
     return label->getContentSize().width;
 }
 
-static std::string internalUTF8MoveLeft(std::string_view utf8Text, int length /* default utf8Text.length() */)
+static std::string_view internalUTF8MoveLeft(std::string_view utf8Text,
+                                             int moveLen,
+                                             int length /* =  utf8Text.length() */)
 {
     if (!utf8Text.empty() && length > 0)
     {
-
+        int delByte = 0;
         // get the delete byte number
-        int deleteLen = 1;  // default, erase 1 byte
-
-        while (length >= deleteLen && 0x80 == (0xC0 & utf8Text.at(length - deleteLen)))
+        while (moveLen > 0 && length > delByte)
         {
-            ++deleteLen;
+            do
+            {
+                ++delByte;
+            } while (length >= delByte && 0x80 == (0xC0 & utf8Text.at(length - delByte)));
+            --moveLen;
         }
-
-        return std::string{utf8Text.data(), static_cast<size_t>(length - deleteLen)};
+        return std::string_view{utf8Text.data(), static_cast<size_t>(length - delByte)};
     }
     else
     {
-        return std::string{utf8Text};
+        return std::string_view{utf8Text};
     }
 }
 
-static std::string internalUTF8MoveRight(std::string_view utf8Text, int length /* default utf8Text.length() */)
+static std::string_view internalUTF8MoveRight(std::string_view utf8Text,
+                                              int moveLen,
+                                              int length /* = utf8Text.length() */)
 {
     if (!utf8Text.empty() && length >= 0)
     {
-
-        // get the delete byte number
-        size_t addLen = 1;  // default, erase 1 byte
-
-        while ((length + addLen) < utf8Text.size() && 0x80 == (0xC0 & utf8Text.at(length + addLen)))
+        size_t byteSize = utf8Text.size();
+        size_t addByte  = 0;
+        while (moveLen > 0 && length + addByte < byteSize)
         {
-            ++addLen;
+            // get the appending byte number
+            do
+            {
+                ++addByte;
+            } while (length + addByte < byteSize && 0x80 == (0xC0 & utf8Text.at(length + addByte)));
+            --moveLen;
         }
 
-        return std::string{utf8Text.data(), static_cast<size_t>(length + addLen)};
+        return std::string_view{utf8Text.data(), static_cast<size_t>(length + addByte)};
     }
     else
     {
-        return std::string{utf8Text};
+        return std::string_view{utf8Text};
     }
 }
 
@@ -571,8 +579,7 @@ void TextFieldEx::insertText(const char* text, size_t len)
 
         // bool needUpdatePos
         this->setString(sText);
-        while (n-- > 0)
-            __moveCursor(1);
+        __moveCursor(n);
 
         // this->contentDirty = true;
         // __updateCursorPosition();
@@ -641,7 +648,8 @@ void TextFieldEx::deleteBackward(size_t numChars)
     // if all text deleted, show placeholder string
     if (len <= totalDeleteLen)
     {
-        __moveCursor(-1);
+
+        __moveCursor(-numChars);
 
         _inputText.clear();
         _charCount = 0;
@@ -661,12 +669,9 @@ void TextFieldEx::deleteBackward(size_t numChars)
     std::string text = _inputText;  // (inputText.c_str(), len - deleteLen);
     text.erase(_insertPos - totalDeleteLen, totalDeleteLen);
 
-    __moveCursor(-1);
+    __moveCursor(-numChars);
 
     this->setString(text);
-
-    //__updateCursorPosition();
-    // __moveCursor(-1);
 
     if (this->onTextModify)
         this->onTextModify();
@@ -934,37 +939,35 @@ void TextFieldEx::__updateCursorPosition(void)
     }
 }
 
-void TextFieldEx::__moveCursor(int direction)
+void TextFieldEx::__moveCursor(int dirAndLen)
 {
-    auto newOffset = _insertPosUtf8 + direction;
+    auto newOffset = _insertPosUtf8 + dirAndLen;
 
     if (newOffset > 0 && newOffset <= _charCount)
     {
-
         std::string_view displayText;
         if (!_secureTextEntry)
             displayText = this->getString();
         else if (!_inputText.empty())
             displayText = _renderLabel->getString();
 
-        if (direction < 0)
+        if(dirAndLen < 0)
         {
-            _insertPos = static_cast<int>(internalUTF8MoveLeft(_inputText, _insertPos).size());
+            dirAndLen       = -dirAndLen;
+            _insertPos      = static_cast<int>(internalUTF8MoveLeft(_inputText, dirAndLen, _insertPos).size());
 
-            auto s = internalUTF8MoveLeft(displayText, _cursorPos);
-
-            auto width = internalCalcStringWidth(s, _fontName, _fontSize);
-            _cursor->setPosition(Point(width, this->getContentSize().height / 2));
-            _cursorPos = static_cast<int>(s.length());
-        }
-        else
+            auto dispChange = internalUTF8MoveLeft(displayText, dirAndLen, _cursorPos);
+            auto width      = internalCalcStringWidth(dispChange, _fontName, _fontSize);
+            _cursor->setPosition(Point(width, this->_renderLabel->getContentSize().height / 2));
+            _cursorPos = static_cast<int>(dispChange.length());
+        } else
         {
-            _insertPos = static_cast<int>(internalUTF8MoveRight(_inputText, _insertPos).size());
+            _insertPos      = static_cast<int>(internalUTF8MoveRight(_inputText, dirAndLen, _insertPos).size());
 
-            auto s     = internalUTF8MoveRight(displayText, _cursorPos);
-            auto width = internalCalcStringWidth(s, _fontName, _fontSize);
-            _cursor->setPosition(Point(width, this->getContentSize().height / 2));
-            _cursorPos = static_cast<int>(s.length());
+            auto dispChange = internalUTF8MoveRight(displayText, dirAndLen, _cursorPos);
+            auto width      = internalCalcStringWidth(dispChange, _fontName, _fontSize);
+            _cursor->setPosition(Point(width, this->_renderLabel->getContentSize().height / 2));
+            _cursorPos = static_cast<int>(dispChange.length());
         }
 
         _insertPosUtf8 = newOffset;
