@@ -130,6 +130,29 @@ public:
     void closeIME(void);
 
     void insertText(const char* text, size_t len) override;
+    /**
+     * To confirm the text inserting result from the user. Inserting would be accepted when returning true,
+       otherwise ignoring it by returning false. The following are the expected name of the param. you can
+       reset the value of the parameter to change the final result.
+     * @param textToInsert(std::string&) the string to insert. You can modify it to change the final result.
+     * @param insIndex(int&) to indicate where we insert the text, it is the BYTE index of the first character.
+                             Usually you should't modify it.
+     * @return true to accept the insertion, false to ignore it.
+     */
+    std::function<bool(std::string& textToInsert, int& insIndex)> onTextInsertingConfirming;
+    /**
+     * To confirm the text deleting result from the user. Deletion would be accepted when returning true,
+       otherwise ignoring it by returning false. The following are the expected name of the param. you can
+       reset the value of the parameter to change the final result.
+     * @param textToDelete(const_std::string&) the string to remove afterwards. Since there's no mean to modify
+                                               what to delete, it is a constant.
+     * @param delIndex(int&) to indicate where to delete forwards([Backspace]) or backwards([Delete]). It is
+                             the BYTE index of the first character. Usually you should't modify it.
+     * @param delChar(size_t&) to indicate the length of text to be deleted. This is the CHAR length. The class
+                               itselt would reset it when it's out of how long we're allowed to delete. 
+     * @return true to accept the deletion, false to ignore it.
+     */
+    std::function<bool(std::string_view textToDelete, int& delIndex, size_t& delChar)> onTextDeletingConfirming;
 
 protected:
     //////////////////////////////////////////////////////////////////////////

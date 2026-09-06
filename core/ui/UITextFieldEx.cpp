@@ -250,6 +250,8 @@ TextFieldEx::TextFieldEx()
     , _cursorVisible(false)
     , _continuousTouchDelayTimerID(nullptr)
     , _continuousTouchDelayTime(0.6)
+    , onTextInsertingConfirming(nullptr)
+    , onTextDeletingConfirming(nullptr)
 {}
 
 TextFieldEx::~TextFieldEx()
@@ -567,12 +569,10 @@ void TextFieldEx::insertText(const char* text, size_t len)
 
     if (len > 0)
     {
-        // if (_delegate && _delegate->onTextFieldInsertText(this, insert.c_str(), len))
-        //{
-        //     // delegate doesn't want to insert text
-        //     return;
-        // }
-
+        if (this->onTextInsertingConfirming && !this->onTextInsertingConfirming(insert, this->_insertPos))
+            return;
+        // re-calculate the length, which would perhaps be modified. nb is just for place holder.
+        n = _truncateUTF8String(insert.c_str(), static_cast<int>(_charLimit - _charCount), nb);
         _charCount += n;  // _calcCharCount(insert.c_str());
         std::string sText(_inputText);
         sText.insert(_insertPos, insert);  // original is: sText.append(insert);
@@ -629,7 +629,6 @@ void TextFieldEx::deleteBackward(size_t numChars)
     {
         // get the delete byte number
         size_t deleteLen = 1;  // default, erase 1 byte
-
         // Calculate the actual number of bytes to delete for a specific character
         while (0x80 == (0xC0 & _inputText.at(_insertPos - totalDeleteLen - deleteLen)))
         {
@@ -637,7 +636,6 @@ void TextFieldEx::deleteBackward(size_t numChars)
         }
         totalDeleteLen += deleteLen;
     }
-
     // if (_delegate && _delegate->onTextFieldDeleteBackward(this, _inputText.c_str() + len - deleteLen,
     // static_cast<int>(deleteLen)))
     //{
