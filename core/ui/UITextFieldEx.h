@@ -189,6 +189,17 @@ protected:
 
     void __moveCursorTo(float x);
 
+    /// Inner function for `deleteBackward()`.
+    /// @param[out] numChars the number of character to delete(UTF-8).
+    /// @param[out] deleteStartPos position to start deleting backward.
+    /// @param[out] totalDeleteByte the number of byte to delete(length of `std::string`).
+    inline void __deleteBackward_GetPosAndLen(size_t& numChars, size_t& deleteStartPos, size_t& totalDeleteByte);
+
+    /// Inner function for `handleDeleteKeyEvent()`.
+    /// @param[in] totalDeleteChar the number of character to delete(UTF-8).
+    /// @param[out] totalDeleteByte the number of byte to delete(length of `std::string`).
+    inline void __handleDeleteKeyEvent_GetDeleteLen(const size_t totalDeleteChar, size_t& totalDeleteByte);
+
 protected:
     bool _systemFontUsed;
     std::string _fontName;

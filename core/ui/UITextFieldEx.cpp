@@ -611,8 +611,8 @@ void TextFieldEx::deleteBackward(size_t numChars)
         return;
     }
 
-    size_t len = _inputText.length();
-    if (0 == len || _insertPos == 0)
+    size_t strLen = _inputText.length();
+    if (0 == strLen || _insertPos == 0)
     {
         axbeep(0);
         // there is no string
@@ -620,33 +620,22 @@ void TextFieldEx::deleteBackward(size_t numChars)
         return;
     }
 
-    // Length of characters to delete is based on input editor, but the actual
-    // length of the displayed text may be less
-    numChars = std::min(numChars, len);
+    size_t deleteStartPos, totalDeleteByte;
+    this->__deleteBackward_GetPosAndLen(numChars, deleteStartPos, totalDeleteByte);
+    // Extract the actual text to be deleted
+    std::string_view deletedText(_inputText.data() + deleteStartPos, totalDeleteByte);
 
-    size_t totalDeleteLen = 0;
-    for (auto i = 0; i < numChars; ++i)
-    {
-        // get the delete byte number
-        size_t deleteLen = 1;  // default, erase 1 byte
-        // Calculate the actual number of bytes to delete for a specific character
-        while (0x80 == (0xC0 & _inputText.at(_insertPos - totalDeleteLen - deleteLen)))
-        {
-            ++deleteLen;
-        }
-        totalDeleteLen += deleteLen;
-    }
-    // if (_delegate && _delegate->onTextFieldDeleteBackward(this, _inputText.c_str() + len - deleteLen,
-    // static_cast<int>(deleteLen)))
-    //{
-    //     // delegate doesn't want to delete backwards
-    //     return;
-    // }
+    size_t beforeChars = numChars;
+    if (this->onTextDeletingConfirming && !this->onTextDeletingConfirming(deletedText, _insertPos, numChars))
+        return;
+
+    // If length to delete(in UTF8) is modified...
+    if (beforeChars != numChars)
+        this->__deleteBackward_GetPosAndLen(numChars, deleteStartPos, totalDeleteByte);
 
     // if all text deleted, show placeholder string
-    if (len <= totalDeleteLen)
+    if (strLen <= totalDeleteByte)
     {
-
         __moveCursor(-numChars);
 
         _inputText.clear();
@@ -664,8 +653,8 @@ void TextFieldEx::deleteBackward(size_t numChars)
     }
 
     // set new input text
-    std::string text = _inputText;  // (inputText.c_str(), len - deleteLen);
-    text.erase(_insertPos - totalDeleteLen, totalDeleteLen);
+    std::string text = _inputText;  // (inputText.c_str(), strLen - deleteLenByte);
+    text.erase(_insertPos - totalDeleteByte, totalDeleteByte);
 
     __moveCursor(-numChars);
 
@@ -693,22 +682,25 @@ void TextFieldEx::handleDeleteKeyEvent()
     }
 
     // get the delete byte number
-    size_t deleteLen = 1;  // default, erase 1 byte
+    size_t totalDeleteChar = 1;
+    size_t totalDeleteByte = 0;
 
-    while ((_inputText.length() > _insertPos + deleteLen) && 0x80 == (0xC0 & _inputText.at(_insertPos + deleteLen)))
+    this->__handleDeleteKeyEvent_GetDeleteLen(totalDeleteChar, totalDeleteByte);
+
+    size_t beforeChars = totalDeleteChar;
+    std::string_view deletedText = _inputText.substr(_insertPos, totalDeleteByte);
+    if (this->onTextDeletingConfirming &&
+        !this->onTextDeletingConfirming(deletedText, _insertPos, totalDeleteChar))
+        return;
+
+    // If the result above is changed, then recall this function.
+    if (beforeChars != totalDeleteChar)
     {
-        ++deleteLen;
+        this->__handleDeleteKeyEvent_GetDeleteLen(totalDeleteChar, totalDeleteByte);
     }
 
-    // if (_delegate && _delegate->onTextFieldDeleteBackward(this, _inputText.c_str() + len - deleteLen,
-    // static_cast<int>(deleteLen)))
-    //{
-    //     // delegate doesn't wan't to delete backwards
-    //     return;
-    // }
-
     // if all text deleted, show placeholder string
-    if (len <= deleteLen)
+    if (len <= totalDeleteByte)
     {
         _inputText.clear();
         _charCount = 0;
@@ -725,10 +717,8 @@ void TextFieldEx::handleDeleteKeyEvent()
     }
 
     // set new input text
-    std::string text = _inputText;  // (inputText.c_str(), len - deleteLen);
-    text.erase(_insertPos, deleteLen);
-
-    // __moveCursor(-1);
+    std::string text = _inputText;  // (inputText.c_str(), len - deleteLenByte);
+    text.erase(_insertPos, totalDeleteByte);
 
     this->setString(text);
 
@@ -1036,7 +1026,38 @@ void TextFieldEx::__moveCursorTo(float x)
     _insertPosUtf8 = insertWhereUtf8;
     _cursor->setPosition(Point(normalizedX, this->_renderLabel->getContentSize().height / 2));
 }
-};  // namespace ui
 
+void TextFieldEx::__deleteBackward_GetPosAndLen(size_t& numChars, size_t& deleteStartPos, size_t& totalDeleteByte)
+{
+    // Length of characters to delete is based on input editor, but the actual
+    // length of the displayed text may be less.
+    // Actual length depends on _insertPosUtf8, because length to delete should
+    // be less than how long we're allowed to delete.
+    numChars = std::min(numChars, size_t(this->_insertPosUtf8));
+
+    totalDeleteByte = 0;
+    for (auto i = 0; i < numChars; ++i)
+    {
+        do
+        {
+            ++totalDeleteByte;
+        } while (0x80 == (0xC0 & _inputText.at(this->_insertPos - totalDeleteByte)));
+    }
+    deleteStartPos = this->_insertPos - totalDeleteByte;
 }
 
+inline void TextFieldEx::__handleDeleteKeyEvent_GetDeleteLen(const size_t totalDeleteChar, size_t& totalDeleteByte)
+{
+    const size_t textLen = _inputText.length();
+    totalDeleteByte = 0;
+    for (auto i = 0; i < totalDeleteChar && textLen > this->_insertPos + totalDeleteByte; ++i)
+    {
+        do
+        {
+            ++totalDeleteByte;
+        } while (textLen > _insertPos + totalDeleteByte && 0x80 == (0xC0 & _inputText.at(_insertPos + totalDeleteByte)));
+    }
+}
+};  // namespace ui
+
+}  // namespace ax
