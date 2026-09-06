@@ -296,10 +296,10 @@ bool TextFieldEx::initWithPlaceHolder(std::string_view placeholder,
 
     _renderLabel =
         _createLabel(placeholder, fontName, fontSize, Vec2::ZERO, TextHAlignment::CENTER, TextVAlignment::CENTER);
-    _renderLabel->setAnchorPoint(Point::ANCHOR_MIDDLE_LEFT);
+    _renderLabel->setAnchorPoint(Point::ANCHOR_MIDDLE);
     this->addChild(_renderLabel);
 
-    _director->getScheduler()->runOnAxmolThread([this] { _renderLabel->setPosition(Point(0, this->getContentSize().height / 2)); });
+    _director->getScheduler()->runOnAxmolThread([this] { _renderLabel->setPosition(Point(0, 0)); });
 
     __initCursor(fontSize, cursorWidth, cursorColor);
 
@@ -894,9 +894,9 @@ void TextFieldEx::__initCursor(int height, int width, const Color4B& color)
 {
     _cursor = engine_inj_create_lump(Color4B(color), height, width);
 
-    this->addChild(_cursor);
+    _renderLabel->addChild(_cursor);
 
-    _cursor->setPosition(Point(0, this->getContentSize().height / 2));
+    _cursor->setPosition(Point(0, this->_renderLabel->getContentSize().height / 2));
     // nodes_layout::setNodeLB(_cursor, ax::Point::ZERO);
 
     __hideCursor();
@@ -930,11 +930,12 @@ void TextFieldEx::__updateCursorPosition(void)
     {
         if (0 == this->getCharCount())
         {
-            _cursor->setPosition(Point(0, this->getContentSize().height / 2));
+            _cursor->setPosition(Point(0, this->_renderLabel->getContentSize().height / 2));
         }
         else
         {
-            _cursor->setPosition(Point(_renderLabel->getContentSize().width, this->getContentSize().height / 2));
+            _cursor->setPosition(
+                Point(_renderLabel->getContentSize().width, this->_renderLabel->getContentSize().height / 2));
         }
     }
 }
@@ -974,8 +975,8 @@ void TextFieldEx::__moveCursor(int dirAndLen)
     }
     else if (newOffset == 0)
     {
-        _cursor->setPosition(Point(0, this->getContentSize().height / 2));
-        _insertPosUtf8 = newOffset;
+        _cursor->setPosition(Point(0, this->_renderLabel->getContentSize().height / 2));
+        _insertPosUtf8 = 0;
         _insertPos     = 0;
         _cursorPos     = 0;
     }
@@ -1035,7 +1036,7 @@ void TextFieldEx::__moveCursorTo(float x)
     _insertPos     = !_secureTextEntry ? insertWhere : insertWhereUtf8;
     _cursorPos     = insertWhere;
     _insertPosUtf8 = insertWhereUtf8;
-    _cursor->setPosition(Point(normalizedX, this->getContentSize().height / 2));
+    _cursor->setPosition(Point(normalizedX, this->_renderLabel->getContentSize().height / 2));
 }
 };  // namespace ui
 

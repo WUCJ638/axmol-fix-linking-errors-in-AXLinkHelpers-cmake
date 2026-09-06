@@ -63,7 +63,7 @@ public:
                              float cursorWidth    = 2,
                              const Color4B& color = Color4B::WHITE);
 
-    void enableIME(Node* control);
+    void enableIME(Node* control = nullptr);
     void disableIME(void);
 
     Label* getRenderLabel();
